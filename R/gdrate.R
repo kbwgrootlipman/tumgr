@@ -135,7 +135,7 @@ gdrate <- function(input, pval, plots) {
                                                                                     "only 1 eval", ifelse((ninfo2$nunique == 1 & ninfo2$numcyc > 2), "error data",
                                                                                                           ifelse((ninfo2$size0 == 0 & ninfo2$sizelast == 0), "error data",
                                                                                                                  ifelse((ninfo2$numcyc == 2 & ninfo2$twock <=
-                                                                                                                                                                   0.8 | ninfo2$twock >= 1.2), "analyze", "analyze"))))))
+                                                                                                                                                                   0.8 | ninfo2$twock >= 1.2), "analyze", "analyze")))))
     ex <- subset(ninfo2, ninfo2$calcfinal != "analyze")
     if (dim(ex)[1] > 0) {
       zexc <- unique(ex[, c("IDm", "name", "calcfinal", "numcyc")])
