@@ -131,8 +131,7 @@ gdrate <- function(input, pval, plots) {
     
     # assign type- either analyze or reason for exclusion
     ninfo2$calcfinal <- ifelse((ninfo2$nunique == "NA" | is.na(ninfo2$nunique) |
-                                  ninfo2$size0 == 0), "No measurement data", ifelse((ninfo2$numcyc == 1),
-                                                                                    "only 1 eval", ifelse((ninfo2$nunique == 1 & ninfo2$numcyc > 2), "error data",
+                                  ninfo2$size0 == 0), "No measurement data", ifelse((ninfo2$nunique == 1 & ninfo2$numcyc > 2), "error data",
                                                                                                           ifelse((ninfo2$size0 == 0 & ninfo2$sizelast == 0), "error data",
                                                                                                                  ifelse((ninfo2$numcyc == 2 & ninfo2$twock <=
                                                                                                                                                                    0.8 | ninfo2$twock >= 1.2), "analyze", "analyze")))))
