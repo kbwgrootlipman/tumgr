@@ -168,7 +168,7 @@ gdrate <- function(input, pval, plots) {
     jdta <- data.frame(time = dset$t, f = dset$f)
     
     # model given input and i
-    outgd <- gdX(input1)
+    outgd <- fit_model(input1, "gdphi")
     newx <- seq(min(jdta$time), max(jdta$time), by = 1)
     prd <- predict(outgd, newdata = data.frame(time = newx))
     
@@ -190,7 +190,7 @@ gdrate <- function(input, pval, plots) {
     jdta <- data.frame(time = dset$t, f = dset$f)
     
     # model given input and i
-    outgd <- gdX(input1)
+    outgd <- fit_model(input1, "gdphi")
     newx <- seq(min(jdta$time), max(jdta$time), by = 1)
     prd <- predict(outgd, newdata = data.frame(time = newx))
     
