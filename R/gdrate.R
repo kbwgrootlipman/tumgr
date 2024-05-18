@@ -1,5 +1,5 @@
 gdrate <- function(input, pval, plots) {
-  
+
   # Function for given model and dataset
   gdX <- function(input1) {
     tit <- paste("ID=", unique(input1$name), sep = "")
@@ -10,9 +10,12 @@ gdrate <- function(input, pval, plots) {
     colnames(jdta) <- c("time", "f")
     v <- subset(foo, foo$fit == "gdphi")
     
+    # Improved initial parameter estimates
+    start_vals <- list(p = 0.5, gt = 0.005, dt = 0.005)
+    
     try({
-      outgd <- nlsLM(eval(parse(text = paste(v$model))), data = jdta, start = eval(parse(text = paste(v$start))),
-                     control = nls.lm.control(maxiter = 10000, maxfev = 10000, factor = 0.01,
+      outgd <- nlsLM(eval(parse(text = paste(v$model))), data = jdta, start = start_vals,
+                     control = nls.lm.control(maxiter = 1024, maxfev = 10000, factor = 0.1,
                                               ftol = sqrt(.Machine$double.eps), ptol = sqrt(.Machine$double.eps)),
                      lower = eval(parse(text = paste(v$lb))), upper = eval(parse(text = paste(v$ub))))
     }, silent = TRUE)
@@ -20,8 +23,8 @@ gdrate <- function(input, pval, plots) {
     if (!exists("outgd")) {
       try({
         outgd2 <- stats::nls(eval(parse(text = paste(v$model))), data = jdta,
-                             start = eval(parse(text = paste(v$start))), algorithm = 'port',
-                             control = stats::nls.control(maxiter = 10000, warnOnly = FALSE, minFactor = .000001),
+                             start = start_vals, algorithm = 'port',
+                             control = stats::nls.control(maxiter = 1024, warnOnly = FALSE, minFactor = .0001),
                              lower = eval(parse(text = paste(v$lb))),
                              upper = eval(parse(text = paste(v$ub))))
       }, silent = TRUE)
@@ -33,7 +36,6 @@ gdrate <- function(input, pval, plots) {
   
   # Function to prepare user input data for modeling
   inputprep <- function(input1) {
-    
     if (is.null(input1)) {
       stop("input argument missing")
     } else {
@@ -208,7 +210,7 @@ gdrate <- function(input, pval, plots) {
   }
   
   # Function to plot observed and predicted values for given patient and model
-  plotgdX <- function(input1) {
+  plotgdX <- function(input1, plotLine = TRUE) {
     # data
     tit <- paste("ID=", unique(input1$name), sep = "")
     dset <- input1[order(input1$date), ]
@@ -223,31 +225,38 @@ gdrate <- function(input, pval, plots) {
     cc <- paste(v$cc)
     
     # model given input and i
-    outgd <- gdX(input1)
-    newx <- seq(1, tseq, by = 1)
-    dnew <- data.frame(time = newx)
-    prd <- stats::predict(outgd, newdata = data.frame(time = newx))
-    
-    # merge pred with input for calc rmse
-    yhat <- cbind(newx, prd)
-    colnames(yhat)[1] <- "time"
-    h <- merge(jdta, yhat, by = "time")
-    h$remove <- ifelse((h$time == 0 & h$prd != 1), 1, 0)
-    h2 <- subset(h, h$remove == 0)
-    h2$res <- h2$f - h2$prd
-    h2$resSq <- h2$res * h2$res
-    rmse <- sqrt(mean(h2$resSq))
-    
-    # plot
-    graphics::par(mar = c(6.5, 4.5, 1, 1.5))
-    graphics::plot(f ~ time, data = jdta, frame = FALSE, col = "red", cex = 1.3, cex.axis = 1.4, cex.lab = 1.6, pch = 19, xlab = "Days", ylab = "Tumor Q/Q0", main = tit)
-    graphics::lines(newx, prd, col = cc, lty = 1, lwd = 3)
-    
-    lp <- ifelse((ft == "dx"), "topright", "topleft")
-    graphics::legend(lp, ft, col = cc, bty = "n", lty = c(1), lwd = 3, cex = 1.2)
-    
-    # observed values
-    graphics::points(f ~ time, data = jdta, pch = 21, col = c("black"), bg = "red", lwd = 1.2, cex = 1.5)
+    outgd <- tryCatch(gdX(input1), error = function(e) NULL)
+    if (!is.null(outgd) && plotLine) {
+      newx <- seq(1, tseq, by = 1)
+      dnew <- data.frame(time = newx)
+      prd <- stats::predict(outgd, newdata = data.frame(time = newx))
+      
+      # merge pred with input for calc rmse
+      yhat <- cbind(newx, prd)
+      colnames(yhat)[1] <- "time"
+      h <- merge(jdta, yhat, by = "time")
+      h$remove <- ifelse((h$time == 0 & h$prd != 1), 1, 0)
+      h2 <- subset(h, h$remove == 0)
+      h2$res <- h2$f - h2$prd
+      h2$resSq <- h2$res * h2$res
+      rmse <- sqrt(mean(h2$resSq))
+      
+      # plot
+      graphics::par(mar = c(6.5, 4.5, 1, 1.5))
+      graphics::plot(f ~ time, data = jdta, frame = FALSE, col = "red", cex = 1.3, cex.axis = 1.4, cex.lab = 1.6, pch = 19, xlab = "Days", ylab = "Tumor Q/Q0", main = tit)
+      graphics::lines(newx, prd, col = cc, lty = 1, lwd = 3)
+      
+      lp <- ifelse((ft == "dx"), "topright", "topleft")
+      graphics::legend(lp, ft, col = cc, bty = "n", lty = c(1), lwd = 3, cex = 1.2)
+      
+      # observed values
+      graphics::points(f ~ time, data = jdta, pch = 21, col = c("black"), bg = "red", lwd = 1.2, cex = 1.5)
+    } else {
+      # plot without the fitted line
+      graphics::par(mar = c(6.5, 4.5, 1, 1.5))
+      graphics::plot(f ~ time, data = jdta, frame = FALSE, col = "red", cex = 1.3, cex.axis = 1.4, cex.lab = 1.6, pch = 19, xlab = "Days", ylab = "Tumor Q/Q0", main = tit)
+      graphics::points(f ~ time, data = jdta, pch = 21, col = c("black"), bg = "red", lwd = 1.2, cex = 1.5)
+    }
   }
   
   # Function to compare models and return selected fit with estimates or not fit
@@ -358,7 +367,7 @@ gdrate <- function(input, pval, plots) {
         selected <- paste(fmd1$fit)
         
         plotiMod <- as.numeric(paste(unique(fmd1$iMod)))
-        if (plots == TRUE) { plotgdX(input1a) }
+        if (plots == TRUE) { plotgdX(input1a, TRUE) }
         fmd$selected <- selected
         fmd$Analyzed <- "yes"
         fmd$Group <- "included"
@@ -367,6 +376,7 @@ gdrate <- function(input, pval, plots) {
         input1a$ploti <- as.numeric(paste(unique(fmd1$iMod)))
         fmd3
       } else {
+        if (plots == TRUE) { plotgdX(input1a, FALSE) }
         fmd$selected <- "not fit"
         fmd$Analyzed <- "yes"
         fmd$Group <- "excluded"
