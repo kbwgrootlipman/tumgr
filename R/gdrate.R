@@ -1,27 +1,26 @@
-
 gdrate <- function(input, pval, plots) {
   
   # Function for given model and dataset
-  gdX <- function(input1, i) {
+  gdX <- function(input1) {
     tit <- paste("ID=", unique(input1$name), sep = "")
     dset <- input1[order(input1$date), ]
     f <- as.matrix(dset$size)
     time <- as.matrix(dset$date)
     jdta <- data.frame(time = ((time - time[1]) + 1), f = f/f[1])
     colnames(jdta) <- c("time", "f")
-    v <- subset(foo, foo$IDmodel == i)
+    v <- subset(foo, foo$fit == "gdphi")
     
     try({
       outgd <- nlsLM(eval(parse(text = paste(v$model))), data = jdta, start = eval(parse(text = paste(v$start))),
                      control = nls.lm.control(maxiter = 1000, maxfev = 1000, factor = 0.01,
-                                              ftol = sqrt(.Machine$double.eps),ptol = sqrt(.Machine$double.eps)),
-                     lower = eval(parse(text = paste(v$lb))),upper = eval(parse(text = paste(v$ub))))
+                                              ftol = sqrt(.Machine$double.eps), ptol = sqrt(.Machine$double.eps)),
+                     lower = eval(parse(text = paste(v$lb))), upper = eval(parse(text = paste(v$ub))))
     }, silent = TRUE)
     
-    if(!exists("outgd") && i == 4 ){
+    if (!exists("outgd")) {
       try({
         outgd2 <- stats::nls(eval(parse(text = paste(v$model))), data = jdta,
-                             start = eval(parse(text = paste(v$start))),algorithm = 'port',
+                             start = eval(parse(text = paste(v$start))), algorithm = 'port',
                              control = stats::nls.control(maxiter = 1000, warnOnly = FALSE, minFactor = .000001),
                              lower = eval(parse(text = paste(v$lb))),
                              upper = eval(parse(text = paste(v$ub))))
@@ -31,8 +30,6 @@ gdrate <- function(input, pval, plots) {
       return(outgd)
     }
   }
-  
-
   
   # Function to prepare user input data for modeling
   inputprep <- function(input1) {
@@ -48,8 +45,8 @@ gdrate <- function(input, pval, plots) {
       } else {
         if (!c('name') %in% colnames(input) | !c('size') %in% colnames(input) | !c('date') %in% colnames(input)) {
           stop("please rename columns as described in help page")
-        }  else {
-          if (!is.numeric(input[,c(1)]) | !is.numeric(input[,c(2)]) | !is.numeric(input[,c(3)])) {
+        } else {
+          if (!is.numeric(input[, c(1)]) | !is.numeric(input[, c(2)]) | !is.numeric(input[, c(3)])) {
             stop("all input data must be numeric")
           } else {
             input2 <- input
@@ -128,22 +125,15 @@ gdrate <- function(input, pval, plots) {
     
     # merge ninfo with input details
     ninfo2 <- merge(x5, ninfo, by = "name", all = TRUE)
-    ninfo2$twock <- ifelse((ninfo2$size0 == 0), (ninfo2$sizelast + 0.5)/(ninfo2$size0 +
-                                                                           0.5), ninfo2$sizelast/ninfo2$size0)
+    ninfo2$twock <- ifelse((ninfo2$size0 == 0), (ninfo2$sizelast + 0.5)/(ninfo2$size0 + 0.5), ninfo2$sizelast/ninfo2$size0)
     
     # assign type- either analyze or reason for exclusion
-    ninfo2$calcfinal <- ifelse((ninfo2$nunique == "NA" | is.na(ninfo2$nunique) |
-                                  ninfo2$size0 == 0), "No measurement data", ifelse((ninfo2$numcyc == 1),
-                                                                                    "only 1 eval", ifelse((ninfo2$nunique == 1 & ninfo2$numcyc > 2), "error data",
-                                                                                                          ifelse((ninfo2$size0 == 0 & ninfo2$sizelast == 0), "error data",
-                                                                                                                 ifelse((ninfo2$numcyc == 2 & ninfo2$twock > 0.8 & ninfo2$twock <
-                                                                                                                           1.2), "2 evals not 20% diff", ifelse((ninfo2$numcyc == 2 & ninfo2$twock <=
-                                                                                                                                                                   0.8 | ninfo2$twock >= 1.2), "analyze", "analyze"))))))
+    ninfo2$calcfinal <- ifelse((ninfo2$nunique == "NA" | is.na(ninfo2$nunique) | ninfo2$size0 == 0), "No measurement data", ifelse((ninfo2$numcyc == 1), "only 1 eval", ifelse((ninfo2$nunique == 1 & ninfo2$numcyc > 2), "error data", ifelse((ninfo2$size0 == 0 & ninfo2$sizelast == 0), "error data", ifelse((ninfo2$numcyc == 2 & ninfo2$twock > 0.8 & ninfo2$twock < 1.2), "2 evals not 20% diff", ifelse((ninfo2$numcyc == 2 & ninfo2$twock <= 0.8 | ninfo2$twock >= 1.2), "analyze", "analyze"))))))
     ex <- subset(ninfo2, ninfo2$calcfinal != "analyze")
     if (dim(ex)[1] > 0) {
       zexc <- unique(ex[, c("IDm", "name", "calcfinal", "numcyc")])
     } else {
-      zexc <- matrix(NaN, ncol=4, nrow=1, byrow=T)
+      zexc <- matrix(NaN, ncol = 4, nrow = 1, byrow = T)
       colnames(zexc) <- c("IDm", "name", "calcfinal", "numcyc")
     }
     
@@ -166,14 +156,14 @@ gdrate <- function(input, pval, plots) {
     return(resultip)
   }
   
-  #Sara
-  rsquared_sara <- function(input1, i) {
+  # Sara
+  rsquared_sara <- function(input1) {
     # data
     dset <- input1[order(input1$date), ]
     jdta <- data.frame(time = dset$t, f = dset$f)
     
     # model given input and i
-    outgd <- gdX(input1, i)
+    outgd <- gdX(input1)
     newx <- seq(min(jdta$time), max(jdta$time), by = 1)
     prd <- predict(outgd, newdata = data.frame(time = newx))
     
@@ -186,20 +176,17 @@ gdrate <- function(input, pval, plots) {
     RSS <- sum(h$resSq)
     R_squared <- 1 - (RSS / TSS)
     
-    #print(paste("ID=", unique(input1$name),"model", i, ":", R_squared))
-    
     return(R_squared)
   }
   
-  
-  #Sara adjusted r 
-  adjrsquared_sara <- function(input1, i) {
+  # Sara adjusted r 
+  adjrsquared_sara <- function(input1) {
     # data
     dset <- input1[order(input1$date), ]
     jdta <- data.frame(time = dset$t, f = dset$f)
     
     # model given input and i
-    outgd <- gdX(input1, i)
+    outgd <- gdX(input1)
     newx <- seq(min(jdta$time), max(jdta$time), by = 1)
     prd <- predict(outgd, newdata = data.frame(time = newx))
     
@@ -217,13 +204,11 @@ gdrate <- function(input, pval, plots) {
     p <- length(coef(outgd)) - 1 # number of predictors (excluding intercept)
     Adj_R_squared <- 1 - (1 - R_squared) * ((n - 1) / (n - p - 1))
     
-    #print(paste("ID=", unique(input1$name),"model", i, ":", Adj_R_squared))
-    
     return(Adj_R_squared)
   }
   
   # Function to plot observed and predicted values for given patient and model
-  plotgdX <- function(input1, i) {
+  plotgdX <- function(input1) {
     # data
     tit <- paste("ID=", unique(input1$name), sep = "")
     dset <- input1[order(input1$date), ]
@@ -233,12 +218,12 @@ gdrate <- function(input, pval, plots) {
     jdta <- data.frame(cbind(time, f))
     
     # model info
-    v <- subset(foo, foo$IDmodel == i)
+    v <- subset(foo, foo$fit == "gdphi")
     ft <- paste(v$fit)
     cc <- paste(v$cc)
     
     # model given input and i
-    outgd <- gdX(input1, i)
+    outgd <- gdX(input1)
     newx <- seq(1, tseq, by = 1)
     dnew <- data.frame(time = newx)
     prd <- stats::predict(outgd, newdata = data.frame(time = newx))
@@ -255,18 +240,14 @@ gdrate <- function(input, pval, plots) {
     
     # plot
     graphics::par(mar = c(6.5, 4.5, 1, 1.5))
-    graphics::plot(f ~ time, data = jdta, frame = FALSE, col = "red", cex = 1.3, cex.axis = 1.4,
-                   cex.lab = 1.6, pch = 19, xlab = "Days", ylab = "Tumor Q/Q0", main = tit)
+    graphics::plot(f ~ time, data = jdta, frame = FALSE, col = "red", cex = 1.3, cex.axis = 1.4, cex.lab = 1.6, pch = 19, xlab = "Days", ylab = "Tumor Q/Q0", main = tit)
     graphics::lines(newx, prd, col = cc, lty = 1, lwd = 3)
     
     lp <- ifelse((ft == "dx"), "topright", "topleft")
     graphics::legend(lp, ft, col = cc, bty = "n", lty = c(1), lwd = 3, cex = 1.2)
     
-    
     # observed values
-    graphics::points(f ~ time, data = jdta, pch = 21, col = c("black"), bg = "red", lwd = 1.2,
-                     cex = 1.5)
-    # return(rmse)
+    graphics::points(f ~ time, data = jdta, pch = 21, col = c("black"), bg = "red", lwd = 1.2, cex = 1.5)
   }
   
   # Function to compare models and return selected fit with estimates or not fit
@@ -278,17 +259,16 @@ gdrate <- function(input, pval, plots) {
       stopMessage <- "NA"
       stopcode <- "NA"
       zout <- cbind(fit, iMod, name00, stopcode, stopMessage, isconv)
-      #Sara2
-      laout <- cbind(name00, sigp = NaN, np = NaN, LL = NaN, AIC = NaN, AICc = NaN,lm, R= NaN, AdjR=NaN)
+      # Sara2
+      laout <- cbind(name00, sigp = NaN, np = NaN, LL = NaN, AIC = NaN, AICc = NaN, lm, R = NaN, AdjR = NaN)
       zaout <- merge(zout, laout, by = "name00")
       zaout
     }
     
     # empty coef tab if lm LT np or model not fit
     xcof <- function(fit, name00) {
-      q0 <- data.frame(cbind(Estimate = NaN, Std..Error = NaN, t.value = NaN,
-                             Pr...t.. = NaN))
-      q1 <- cbind(name00=name00, parameter="NA", modelnames=fit)
+      q0 <- data.frame(cbind(Estimate = NaN, Std..Error = NaN, t.value = NaN, Pr...t.. = NaN))
+      q1 <- cbind(name00 = name00, parameter = "NA", modelnames = fit)
       q <- cbind(q0, q1)
     }
     
@@ -297,13 +277,13 @@ gdrate <- function(input, pval, plots) {
       input1a <- subset(c, c$ID4 == k)
       
       # by model given patient k
-      fmod <- function(i) {
+      fmod <- function() {
         name00 <- as.numeric(paste(unique(input1a$name)))
-        fit <- paste(foo[foo$IDmodel == i, c(2)])
-        iMod <- as.numeric(paste(foo[foo$IDmodel == i, c(1)]))
+        fit <- "gdphi"
+        iMod <- as.numeric(paste(foo[foo$fit == "gdphi", c(1)]))
         
         # number of parameters in model
-        np <- as.numeric(paste(foo[foo$IDmodel == i, c(9)]))
+        np <- as.numeric(paste(foo[foo$fit == "gdphi", c(9)]))
         
         # number of measurement values
         lm <- length(input1a$size)
@@ -317,7 +297,7 @@ gdrate <- function(input, pval, plots) {
           zaout
         } else {
           try({
-            outgd <- gdX(input1a, i)
+            outgd <- gdX(input1a)
           }, silent = TRUE)
           
           if (exists("outgd")) {
@@ -328,29 +308,26 @@ gdrate <- function(input, pval, plots) {
             zout <- cbind(fit, iMod, name00, stopcode, stopMessage, isconv)
             
             if (isconv == "TRUE") {
-              R <- rsquared_sara(input1a, i)  # Calculate R-squared SARA 2
-              AdjR <- adjrsquared_sara(input1a , i) #calculate adj R Sara 2
+              R <- rsquared_sara(input1a)  # Calculate R-squared SARA 2
+              AdjR <- adjrsquared_sara(input1a) # calculate adj R Sara 2
               
               LL <- stats::logLik(outgd)
               AIC <- as.numeric(paste(-2 * LL + 2 * np))
-              AICc <- as.numeric(paste(AIC + 2 * np * (np + 1)/(lm - np -1)))
+              AICc <- as.numeric(paste(AIC + 2 * np * (np + 1) / (lm - np - 1)))
               q <- data.frame(summary(outgd)$coefficients)
               q$name00 <- name00
               q$parameter <- row.names(q)
               q$modelnames <- fit
               q$sig <- ifelse((q$Pr...t.. < pval), 1, 0)
               sigp <- sum(q$sig)
-              #Sara
-              laout <- data.frame(cbind(name00, sigp, np, LL, AIC, AICc,lm, R, AdjR))
+              laout <- data.frame(cbind(name00, sigp, np, LL, AIC, AICc, lm, R, AdjR))
               zaout0 <- merge(zout, laout, by = "name00")
               zcof <- data.frame(q[, c(1:7)])
               zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
               zaout
             } else {
               zout <- cbind(fit, iMod, name00, stopcode, stopMessage, isconv)
-              #Sara
-              laout <- data.frame(cbind(name00, sigp = NaN, np, LL = NaN,
-                                        AIC = NaN, AICc = NaN, lm, R=NaN, AdjR = NaN))
+              laout <- data.frame(cbind(name00, sigp = NaN, np, LL = NaN, AIC = NaN, AICc = NaN, lm, R = NaN, AdjR = NaN))
               zaout0 <- merge(zout, laout, by = "name00")
               zcof <- xcof(fit = fit, name00 = name00)
               zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
@@ -361,85 +338,27 @@ gdrate <- function(input, pval, plots) {
             zcof <- xcof(fit = fit, name00 = name00)
             zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
             zaout
-          }  #end if exists outgd
+          }  # end if exists outgd
           zaout
-        }  #end if n params Lt n measurements and size0 NE 0
-
+        }  # end if n params Lt n measurements and size0 NE 0
+        
         return(zaout)
       }
       
-      fmd <- do.call("rbind", sapply(1:nm, fmod, simplify = FALSE))
-
+      fmd <- fmod()
+      
       # selected or not fit
-      #sigm <- unique(fmd[fmd$sigp == fmd$np & fmd$isconv == "TRUE", 1:10])
-      #sara2 now we select the models that has at least 1 sig parameter. Not all of them. 
       sigm <- unique(fmd[fmd$sigp >= 1 & fmd$isconv == "TRUE", c((1:10), 13, 14)])
-      print(sigm)
       dsigm <- dim(sigm)[1]
       
-      #Sara2
-      keepcols <- c("name00", "lm", "Analyzed", "Group", "selected", "iMod",
-                    "modelnames", "parameter", "Estimate", "Std..Error", "t.value","Pr...t..", "AIC", "R","AdjR")
+      keepcols <- c("name00", "lm", "Analyzed", "Group", "selected", "iMod", "modelnames", "parameter", "Estimate", "Std..Error", "t.value", "Pr...t..", "AIC", "R", "AdjR")
       
       if (dsigm > 0) {
-        # #Sara2 calculate the best R2. When we can add the R in the zaout variable this code will be much nicer. 
-        # fmd_list <- list()
-        # # #Loop over each unique AIC value
-        # best_models <- list()
-        # 
-        # # Initialize variables to store the best model and its R-squared value
-        # best_rsquared <- -Inf
-        # best_model <- NULL
-        # 
-        # 
-        # # Loop over each unique fit value
-        # unique_fit <- unique(sigm$fit)
-        # 
-        # for (fit in unique_fit) {
-        #   # Subset the data for the current fit value
-        #   fmd_subset <- sigm[sigm$fit == fit, ]
-        # 
-        #   # Additional processing for each subset if needed
-        #   selected <- paste(fmd_subset$fit)
-        #   plotiMod <- as.numeric(unique(fmd_subset$iMod))
-        # 
-        #   # Calculate R-squared
-        #   rsquared <- rsquared_sara(input1a, plotiMod)
-        # 
-        # 
-        #   # Update best model if current R-squared is higher
-        #   if (rsquared > best_rsquared) {
-        #     best_rsquared <- rsquared
-        #     best_model <- selected
-        #   }
-        # 
-        #   # Plot if required
-        #   #if (plots == TRUE) {
-        #    # plotgdX(input1a, plotiMod)
-        #   #}
-        #   # Check if rsquared is -Inf and exit if so
-        #   if (rsquared == -Inf) {
-        #   print("Warning: R-squared is -Inf.")
-        #   return(NULL)  # Exits the loop
-        #   }
-        # }
-        # 
-        # # Print the best model found
-        # print(paste("Best Model:", best_model, "with R-squared:", best_rsquared))
-        # 
-        
-        #fmd1 <- sigm[(sigm$AIC == min(sigm$AIC)), ]
-        #selected <- paste(fmd1$fit)
-        #Sara2
-        #selected <- best_model
-        #fmd1 <- sigm[(sigm$fit == best_model), ]
-        
-        #Sara R
         fmd1 <- sigm[(sigm$R == max(sigm$R)), ]
         selected <- paste(fmd1$fit)
         
         plotiMod <- as.numeric(paste(unique(fmd1$iMod)))
-        if (plots==TRUE) { plotgdX(input1a, plotiMod) }
+        if (plots == TRUE) { plotgdX(input1a) }
         fmd$selected <- selected
         fmd$Analyzed <- "yes"
         fmd$Group <- "included"
@@ -464,7 +383,6 @@ gdrate <- function(input, pval, plots) {
     a <- allinput
     name <- unique(a$name)
     ln <- length(name)
-    nm <- dim(foo)[1]
     
     if (ln > 0) {
       ID4 <- rep(1:ln, 1)
@@ -477,11 +395,8 @@ gdrate <- function(input, pval, plots) {
     }
     
     allconv <- conout
-    #print(allconv)
-    #Sara put aic and R also in the dataframe.The columns switches whenever I add an extra metric
-    pEst <- conout[, c(1, 4, 5, 7:12, 2, 16,13,14,15)]
-    colnames(pEst) <- c("name", "type", "selected", "fit", "parameter", "Estimate",
-                        "StdError", "t.value", "p.value", "N", "IDr","AIC", "R", "AdjR")
+    pEst <- conout[, c(1, 4, 5, 7:12, 2, 16, 13, 14, 15)]
+    colnames(pEst) <- c("name", "type", "selected", "fit", "parameter", "Estimate", "StdError", "t.value", "p.value", "N", "IDr", "AIC", "R", "AdjR")
     return(pEst)
   }
   
@@ -544,8 +459,7 @@ gdrate <- function(input, pval, plots) {
     
     out6 <- merge(outg, outd, by = c("name", "selectedFit"), all = TRUE)
     out7 <- merge(out6, outphi, by = c("name", "selectedFit"), all = TRUE)
-    out7$finalg <- ifelse((out7$selectedFit == "gdphi"), (out7$g * sqrt((1 -
-                                                                           out7$phi))), out7$g)
+    out7$finalg <- ifelse((out7$selectedFit == "gdphi"), (out7$g * sqrt((1 - out7$phi))), out7$g)
     out7$finald <- out7$d
     out7$finalphi <- out7$phi
     out8 <- merge(out7, ncyc, by = "name")
@@ -558,10 +472,8 @@ gdrate <- function(input, pval, plots) {
   initf <- function() {
     IDmod <- rep(1:4, 1)
     fit <- c("gd", "dx", "gx", "gdphi")
-    model <- c("f~exp(-d*time)+exp(g*(time))-1", "f~exp(-dx*time)", "f~exp(gx*time)",
-               "f~(1-p)*exp(gt*time)+p*exp(-dt*time)")
-    start <- c("list(g=0.00511,d=0.00511)", "list(dx=0.00511)", "list(gx=0.00511)",
-               "list(p=.9,gt=.00511,dt=.00511)")
+    model <- c("f~exp(-d*time)+exp(g*(time))-1", "f~exp(-dx*time)", "f~exp(gx*time)", "f~(1-p)*exp(gt*time)+p*exp(-dt*time)")
+    start <- c("list(g=0.00511,d=0.00511)", "list(dx=0.00511)", "list(gx=0.00511)", "list(p=.9,gt=.00511,dt=.00511)")
     cc <- c("blue", "purple3", "navy", "midnightblue")
     lb <- c("c(0,0)", "c(0)", "c(0)", "c(0,0,0)")
     ub <- c("c(1,1)", "c(1)", "c(1)", "c(1,1,1)")
@@ -581,7 +493,7 @@ gdrate <- function(input, pval, plots) {
     genoutlist <- function(xx) {
       y <- data.frame(stats::aggregate(xx$name ~ xx$calcfinal, data = xx, length))
       colnames(y) <- c("Type", "N")
-      y$Percentage <- round((y$N/sum(y$N)), digits = 2) * 100
+      y$Percentage <- round((y$N / sum(y$N)), digits = 2) * 100
       y$Group <- ifelse((y$Type %in% paste(foo$fit)), "included", "excluded")
       olt <- c(paste(foo$fit), "not fit")
       y$Analyzed <- ifelse((y$Type %in% olt), "yes", "no")
@@ -603,7 +515,7 @@ gdrate <- function(input, pval, plots) {
         colnames(ol2)[2:3] <- c("N", "selectedFit")
         OutputData <- cbind(ol2, g = NaN, d = NaN, phi = NaN)
         noa <- "no analyzable cases in input data"
-        result <- list(allest = noa, results = OutputData, models = outlist1,sumstats = noa)
+        result <- list(allest = noa, results = OutputData, models = outlist1, sumstats = noa)
         return(result)
       }
       
@@ -700,8 +612,7 @@ gdrate <- function(input, pval, plots) {
             if (lv > 0) {
               N <- length(vals)
               Median <- round(stats::median(vals), digits = 6)
-              IQR <- paste("(", round(stats::quantile(vals)[2], digits = 6), ", ",
-                           round(stats::quantile(vals)[4], digits = 6), ")", sep = "")
+              IQR <- paste("(", round(stats::quantile(vals)[2], digits = 6), ", ", round(stats::quantile(vals)[4], digits = 6), ")", sep = "")
               Mean <- round(mean(vals), digits = 6)
               SD <- round(stats::sd(vals), digits = 6)
               Parameter <- vc
@@ -709,7 +620,7 @@ gdrate <- function(input, pval, plots) {
             } else {
               Parameter <- vc
               nv <- NaN
-              out1 <- data.frame(cbind(Parameter, N = nv, Median = nv, IQR = nv,Mean = nv, SD = nv))
+              out1 <- data.frame(cbind(Parameter, N = nv, Median = nv, IQR = nv, Mean = nv, SD = nv))
             }
             return(out1)
           }
@@ -755,7 +666,7 @@ gdrate <- function(input, pval, plots) {
           colnames(rescalc) <- c("name", "N", "type", "selectedFit", "g", "d", "phi")
           outlist2 <- "no estimates when zero included cases"
           allconv0 <- "no estimates when zero included cases"
-        }  #end combos inc1 GT 0 else
+        }  # end combos inc1 GT 0 else
         
         # list to output
         result <- list(allest = allconv0, results = rescalc, models = outlist1, sumstats = outlist2)
