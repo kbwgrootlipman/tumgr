@@ -17,21 +17,22 @@ gdrate <- function(input, pval, plots) {
       start_vals <- eval(parse(text = paste(v$start)))
     }
     
-    try({
-      outgd <- nlsLM(eval(parse(text = paste(v$model))), data = jdta, start = start_vals,
-                     control = nls.lm.control(maxiter = 1024, maxfev = 10000, factor = 0.1,
-                                              ftol = sqrt(.Machine$double.eps), ptol = sqrt(.Machine$double.eps)),
-                     lower = eval(parse(text = paste(v$lb))), upper = eval(parse(text = paste(v$ub))))
-    }, silent = TRUE)
+    outgd <- tryCatch({
+      nlsLM(eval(parse(text = paste(v$model))), data = jdta, start = start_vals,
+            control = nls.lm.control(maxiter = 1024, maxfev = 10000, factor = 0.1,
+                                     ftol = sqrt(.Machine$double.eps), ptol = sqrt(.Machine$double.eps)),
+            lower = eval(parse(text = paste(v$lb))), upper = eval(parse(text = paste(v$ub))))
+    }, error = function(e) NULL, warning = function(w) NULL)
     
-    if (!exists("outgd")) {
-      try({
-        outgd2 <- stats::nls(eval(parse(text = paste(v$model))), data = jdta,
-                             start = start_vals, algorithm = 'port',
-                             control = stats::nls.control(maxiter = 1024, warnOnly = FALSE, minFactor = .0001),
-                             lower = eval(parse(text = paste(v$lb))),
-                             upper = eval(parse(text = paste(v$ub))))
-      }, silent = TRUE)
+    if (is.null(outgd)) {
+      outgd2 <- tryCatch({
+        stats::nls(eval(parse(text = paste(v$model))), data = jdta,
+                   start = start_vals, algorithm = 'port',
+                   control = stats::nls.control(maxiter = 1024, warnOnly = FALSE, minFactor = .0001),
+                   lower = eval(parse(text = paste(v$lb))),
+                   upper = eval(parse(text = paste(v$ub))))
+      }, error = function(e) NULL, warning = function(w) NULL)
+      
       return(outgd2)
     } else {
       return(outgd)
@@ -163,12 +164,15 @@ gdrate <- function(input, pval, plots) {
   }
   
   # Function to calculate R-squared
-  rsquared_sara <- function(input1) {
+  rsquared_sara <- function(input1, model_name) {
     dset <- input1[order(input1$date), ]
     jdta <- data.frame(time = dset$t, f = dset$f)
     
     # model given input and i
-    outgd <- fit_model(input1, "gdphi")
+    outgd <- fit_model(input1, model_name)
+    if (is.null(outgd)) {
+      return(NA)
+    }
     newx <- seq(min(jdta$time), max(jdta$time), by = 1)
     prd <- predict(outgd, newdata = data.frame(time = newx))
     
@@ -185,12 +189,15 @@ gdrate <- function(input, pval, plots) {
   }
   
   # Function to calculate Adjusted R-squared
-  adjrsquared_sara <- function(input1) {
+  adjrsquared_sara <- function(input1, model_name) {
     dset <- input1[order(input1$date), ]
     jdta <- data.frame(time = dset$t, f = dset$f)
     
     # model given input and i
-    outgd <- fit_model(input1, "gdphi")
+    outgd <- fit_model(input1, model_name)
+    if (is.null(outgd)) {
+      return(NA)
+    }
     newx <- seq(min(jdta$time), max(jdta$time), by = 1)
     prd <- predict(outgd, newdata = data.frame(time = newx))
     
@@ -322,8 +329,8 @@ gdrate <- function(input, pval, plots) {
         zout <- cbind(fit = model, iMod, name00, stopcode, stopMessage, isconv)
         
         if (isconv == "TRUE") {
-          R <- rsquared_sara(input1a)  # Calculate R-squared
-          AdjR <- adjrsquared_sara(input1a) # Calculate adjusted R-squared
+          R <- rsquared_sara(input1a, model)  # Calculate R-squared
+          AdjR <- adjrsquared_sara(input1a, model) # Calculate adjusted R-squared
           
           LL <- stats::logLik(fit)
           AIC <- as.numeric(paste(-2 * LL + 2 * np))
