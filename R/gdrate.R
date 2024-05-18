@@ -12,7 +12,7 @@ gdrate <- function(input, pval, plots) {
     
     try({
       outgd <- nlsLM(eval(parse(text = paste(v$model))), data = jdta, start = eval(parse(text = paste(v$start))),
-                     control = nls.lm.control(maxiter = 1000, maxfev = 1000, factor = 0.01,
+                     control = nls.lm.control(maxiter = 10000, maxfev = 10000, factor = 0.01,
                                               ftol = sqrt(.Machine$double.eps), ptol = sqrt(.Machine$double.eps)),
                      lower = eval(parse(text = paste(v$lb))), upper = eval(parse(text = paste(v$ub))))
     }, silent = TRUE)
@@ -21,7 +21,7 @@ gdrate <- function(input, pval, plots) {
       try({
         outgd2 <- stats::nls(eval(parse(text = paste(v$model))), data = jdta,
                              start = eval(parse(text = paste(v$start))), algorithm = 'port',
-                             control = stats::nls.control(maxiter = 1000, warnOnly = FALSE, minFactor = .000001),
+                             control = stats::nls.control(maxiter = 10000, warnOnly = FALSE, minFactor = .000001),
                              lower = eval(parse(text = paste(v$lb))),
                              upper = eval(parse(text = paste(v$ub))))
       }, silent = TRUE)
