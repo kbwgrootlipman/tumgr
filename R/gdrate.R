@@ -1,17 +1,21 @@
 gdrate <- function(input, pval, plots) {
-
-  # Function for given model and dataset
-  gdX <- function(input1) {
+  
+  # Function to fit the specified model and dataset
+  fit_model <- function(input1, model_name) {
     tit <- paste("ID=", unique(input1$name), sep = "")
     dset <- input1[order(input1$date), ]
     f <- as.matrix(dset$size)
     time <- as.matrix(dset$date)
-    jdta <- data.frame(time = ((time - time[1]) + 1), f = f/f[1])
+    jdta <- data.frame(time = ((time - time[1]) + 1), f = f / f[1])
     colnames(jdta) <- c("time", "f")
-    v <- subset(foo, foo$fit == "gdphi")
+    v <- subset(foo, foo$fit == model_name)
     
-    # Improved initial parameter estimates
-    start_vals <- list(p = 0.5, gt = 0.005, dt = 0.005)
+    # Improved initial parameter estimates for gdphi
+    if (model_name == "gdphi") {
+      start_vals <- list(p = 0.5, gt = 0.005, dt = 0.005)
+    } else {
+      start_vals <- eval(parse(text = paste(v$start)))
+    }
     
     try({
       outgd <- nlsLM(eval(parse(text = paste(v$model))), data = jdta, start = start_vals,
@@ -113,9 +117,9 @@ gdrate <- function(input, pval, plots) {
       r$t <- r$date - r$time0
       # if size initial =0
       if (r1[1, 4] == 0) {
-        r$f <- (r$size + 0.5)/(r$size0 + 0.5)
+        r$f <- (r$size + 0.5) / (r$size0 + 0.5)
       } else {
-        r$f <- r$size/r$size0
+        r$f <- r$size / r$size0
       }
       
       r5 <- subset(r, r$f != "NaN" & r$f != "Inf")
@@ -127,7 +131,7 @@ gdrate <- function(input, pval, plots) {
     
     # merge ninfo with input details
     ninfo2 <- merge(x5, ninfo, by = "name", all = TRUE)
-    ninfo2$twock <- ifelse((ninfo2$size0 == 0), (ninfo2$sizelast + 0.5)/(ninfo2$size0 + 0.5), ninfo2$sizelast/ninfo2$size0)
+    ninfo2$twock <- ifelse((ninfo2$size0 == 0), (ninfo2$sizelast + 0.5) / (ninfo2$size0 + 0.5), ninfo2$sizelast / ninfo2$size0)
     
     # assign type- either analyze or reason for exclusion
     ninfo2$calcfinal <- ifelse((ninfo2$nunique == "NA" | is.na(ninfo2$nunique) | ninfo2$size0 == 0), "No measurement data", ifelse((ninfo2$numcyc == 1), "only 1 eval", ifelse((ninfo2$nunique == 1 & ninfo2$numcyc > 2), "error data", ifelse((ninfo2$size0 == 0 & ninfo2$sizelast == 0), "error data", ifelse((ninfo2$numcyc == 2 & ninfo2$twock > 0.8 & ninfo2$twock < 1.2), "2 evals not 20% diff", ifelse((ninfo2$numcyc == 2 & ninfo2$twock <= 0.8 | ninfo2$twock >= 1.2), "analyze", "analyze"))))))
@@ -158,9 +162,8 @@ gdrate <- function(input, pval, plots) {
     return(resultip)
   }
   
-  # Sara
+  # Function to calculate R-squared
   rsquared_sara <- function(input1) {
-    # data
     dset <- input1[order(input1$date), ]
     jdta <- data.frame(time = dset$t, f = dset$f)
     
@@ -181,9 +184,8 @@ gdrate <- function(input, pval, plots) {
     return(R_squared)
   }
   
-  # Sara adjusted r 
+  # Function to calculate Adjusted R-squared
   adjrsquared_sara <- function(input1) {
-    # data
     dset <- input1[order(input1$date), ]
     jdta <- data.frame(time = dset$t, f = dset$f)
     
@@ -210,7 +212,7 @@ gdrate <- function(input, pval, plots) {
   }
   
   # Function to plot observed and predicted values for given patient and model
-  plotgdX <- function(input1, plotLine = TRUE) {
+  plotgdX <- function(input1, model_name, plotLine = TRUE) {
     # data
     tit <- paste("ID=", unique(input1$name), sep = "")
     dset <- input1[order(input1$date), ]
@@ -220,12 +222,12 @@ gdrate <- function(input, pval, plots) {
     jdta <- data.frame(cbind(time, f))
     
     # model info
-    v <- subset(foo, foo$fit == "gdphi")
+    v <- subset(foo, foo$fit == model_name)
     ft <- paste(v$fit)
     cc <- paste(v$cc)
     
     # model given input and i
-    outgd <- tryCatch(gdX(input1), error = function(e) NULL)
+    outgd <- tryCatch(fit_model(input1, model_name), error = function(e) NULL)
     if (!is.null(outgd) && plotLine) {
       newx <- seq(1, tseq, by = 1)
       dnew <- data.frame(time = newx)
@@ -285,107 +287,75 @@ gdrate <- function(input, pval, plots) {
     fid4 <- function(k) {
       input1a <- subset(c, c$ID4 == k)
       
-      # by model given patient k
-      fmod <- function() {
-        name00 <- as.numeric(paste(unique(input1a$name)))
-        fit <- "gdphi"
-        iMod <- as.numeric(paste(foo[foo$fit == "gdphi", c(1)]))
+      # Function to attempt fitting multiple models
+      try_models <- function() {
+        models <- c("gdphi", "gd", "gx", "dx")
+        fit <- NULL
+        for (model in models) {
+          fit <- tryCatch(fit_model(input1a, model), error = function(e) NULL)
+          if (!is.null(fit)) {
+            return(list(fit = fit, model = model))
+          }
+        }
+        return(NULL)
+      }
+      
+      fitting_result <- try_models()
+      name00 <- as.numeric(paste(unique(input1a$name)))
+      iMod <- as.numeric(paste(foo[foo$fit == "gdphi", c(1)]))
+      
+      if (!is.null(fitting_result)) {
+        fit <- fitting_result$fit
+        model <- fitting_result$model
+        v <- subset(foo, foo$fit == model)
         
         # number of parameters in model
-        np <- as.numeric(paste(foo[foo$fit == "gdphi", c(9)]))
+        np <- as.numeric(paste(v$K))
         
         # number of measurement values
         lm <- length(input1a$size)
         
-        # cond exe if n measurement values LE n parameters
-        if (lm <= np) {
-          name00 <- as.numeric(paste(unique(input1a$name)))
-          zaout0 <- xfit(fit = fit, name00 = name00, iMod = iMod, lm = lm)
-          zcof <- xcof(fit = fit, name00 = name00)
+        z <- fit$convInfo
+        stopcode <- z$stopCode
+        stopMessage <- z$stopMessage
+        isconv <- z$isConv
+        zout <- cbind(fit = model, iMod, name00, stopcode, stopMessage, isconv)
+        
+        if (isconv == "TRUE") {
+          R <- rsquared_sara(input1a)  # Calculate R-squared
+          AdjR <- adjrsquared_sara(input1a) # Calculate adjusted R-squared
+          
+          LL <- stats::logLik(fit)
+          AIC <- as.numeric(paste(-2 * LL + 2 * np))
+          AICc <- as.numeric(paste(AIC + 2 * np * (np + 1) / (lm - np - 1)))
+          q <- data.frame(summary(fit)$coefficients)
+          q$name00 <- name00
+          q$parameter <- row.names(q)
+          q$modelnames <- model
+          q$sig <- ifelse((q$Pr...t.. < pval), 1, 0)
+          sigp <- sum(q$sig)
+          laout <- data.frame(cbind(name00, sigp, np, LL, AIC, AICc, lm, R, AdjR))
+          zaout0 <- merge(zout, laout, by = "name00")
+          zcof <- data.frame(q[, c(1:7)])
           zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
           zaout
         } else {
-          try({
-            outgd <- gdX(input1a)
-          }, silent = TRUE)
-          
-          if (exists("outgd")) {
-            z <- outgd$convInfo
-            stopcode <- z$stopCode
-            stopMessage <- z$stopMessage
-            isconv <- z$isConv
-            zout <- cbind(fit, iMod, name00, stopcode, stopMessage, isconv)
-            
-            if (isconv == "TRUE") {
-              R <- rsquared_sara(input1a)  # Calculate R-squared SARA 2
-              AdjR <- adjrsquared_sara(input1a) # calculate adj R Sara 2
-              
-              LL <- stats::logLik(outgd)
-              AIC <- as.numeric(paste(-2 * LL + 2 * np))
-              AICc <- as.numeric(paste(AIC + 2 * np * (np + 1) / (lm - np - 1)))
-              q <- data.frame(summary(outgd)$coefficients)
-              q$name00 <- name00
-              q$parameter <- row.names(q)
-              q$modelnames <- fit
-              q$sig <- ifelse((q$Pr...t.. < pval), 1, 0)
-              sigp <- sum(q$sig)
-              laout <- data.frame(cbind(name00, sigp, np, LL, AIC, AICc, lm, R, AdjR))
-              zaout0 <- merge(zout, laout, by = "name00")
-              zcof <- data.frame(q[, c(1:7)])
-              zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
-              zaout
-            } else {
-              zout <- cbind(fit, iMod, name00, stopcode, stopMessage, isconv)
-              laout <- data.frame(cbind(name00, sigp = NaN, np, LL = NaN, AIC = NaN, AICc = NaN, lm, R = NaN, AdjR = NaN))
-              zaout0 <- merge(zout, laout, by = "name00")
-              zcof <- xcof(fit = fit, name00 = name00)
-              zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
-              zaout
-            }
-          } else {
-            zaout0 <- xfit(fit = fit, name00 = name00, iMod = iMod, lm = lm)
-            zcof <- xcof(fit = fit, name00 = name00)
-            zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
-            zaout
-          }  # end if exists outgd
+          zout <- cbind(fit = model, iMod, name00, stopcode, stopMessage, isconv)
+          laout <- data.frame(cbind(name00, sigp = NaN, np, LL = NaN, AIC = NaN, AICc = NaN, lm, R = NaN, AdjR = NaN))
+          zaout0 <- merge(zout, laout, by = "name00")
+          zcof <- xcof(fit = model, name00 = name00)
+          zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
           zaout
-        }  # end if n params Lt n measurements and size0 NE 0
-        
-        return(zaout)
-      }
-      
-      fmd <- fmod()
-      
-      # selected or not fit
-      sigm <- unique(fmd[fmd$sigp >= 1 & fmd$isconv == "TRUE", c((1:10), 13, 14)])
-      dsigm <- dim(sigm)[1]
-      
-      keepcols <- c("name00", "lm", "Analyzed", "Group", "selected", "iMod", "modelnames", "parameter", "Estimate", "Std..Error", "t.value", "Pr...t..", "AIC", "R", "AdjR")
-      
-      if (dsigm > 0) {
-        fmd1 <- sigm[(sigm$R == max(sigm$R)), ]
-        selected <- paste(fmd1$fit)
-        
-        plotiMod <- as.numeric(paste(unique(fmd1$iMod)))
-        if (plots == TRUE) { plotgdX(input1a, TRUE) }
-        fmd$selected <- selected
-        fmd$Analyzed <- "yes"
-        fmd$Group <- "included"
-        fmd3 <- fmd[, c(keepcols)]
-        fmd3$IDr <- k
-        input1a$ploti <- as.numeric(paste(unique(fmd1$iMod)))
-        fmd3
+        }
       } else {
-        if (plots == TRUE) { plotgdX(input1a, FALSE) }
-        fmd$selected <- "not fit"
-        fmd$Analyzed <- "yes"
-        fmd$Group <- "excluded"
-        fmd3 <- fmd[, c(keepcols)]
-        fmd3$IDr <- k
-        fmd3
+        zaout0 <- xfit(fit = "not fit", name00 = name00, iMod = iMod, lm = lm)
+        zcof <- xcof(fit = "not fit", name00 = name00)
+        zaout <- merge(zaout0, zcof, by = "name00", all = TRUE)
+        zaout
       }
-      colnames(fmd3)[1:2] <- c("name", "Nobs")
-      return(fmd3)
+      
+      colnames(zaout)[1:2] <- c("name", "Nobs")
+      return(zaout)
     }
     
     ip <- inputprep(input)
